@@ -24,29 +24,27 @@ async fn main() {
                 .short('a')
                 .long("add")
                 .value_name("DOMAINS")
-                .help("Comma-separated list of domains to route through the VPN")
-                .required(false),
+                .help("Comma-separated list of domains to route through the VPN"),
         )
         .arg(
             Arg::new("remove-domains")
                 .short('r')
                 .long("remove")
                 .value_name("DOMAINS")
-                .help("Comma-separated list of domains to remove from VPN routing")
-                .required(false),
+                .help("Comma-separated list of domains to remove from VPN routing"),
         )
         .arg(
             Arg::new("list")
                 .short('l')
                 .long("list")
                 .help("List the currently routed domains")
-                .required(false),
+                .action(clap::ArgAction::SetTrue),
         )
         .get_matches();
 
     let vpn_config = matches.get_one::<String>("vpn-config").unwrap();
 
-    if matches.contains_id("list") {
+    if matches.get_flag("list") {
         match list_routed_domains(vpn_config) {
             Ok(_) => (),
             Err(e) => eprintln!("Failed to list routed domains: {}", e),
