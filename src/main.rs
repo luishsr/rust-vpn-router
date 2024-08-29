@@ -4,7 +4,6 @@ use std::fs::{self};
 use std::process::Command as ShellCommand;
 use std::net::Ipv4Addr;
 use std::process::Command as ProcessCommand;
-use tokio::runtime::Runtime;
 
 #[tokio::main]
 async fn main() {
@@ -58,7 +57,7 @@ async fn main() {
         }
     } else if let Some(domains) = matches.get_one::<String>("remove-domains") {
         let domain_list: Vec<&str> = domains.split(',').collect();
-        match remove_vpn_routing(vpn_config, domain_list) {
+        match remove_vpn_routing(vpn_config, domain_list).await {
             Ok(_) => println!("VPN routing removed successfully!"),
             Err(e) => eprintln!("Failed to remove VPN routing: {}", e),
         }
@@ -157,13 +156,13 @@ fn list_routed_domains(vpn_config: &str) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-fn remove_vpn_routing(vpn_config: &str, domains: Vec<&str>) -> Result<(), Box<dyn std::error::Error>> {
+async fn remove_vpn_routing(vpn_config: &str, domains: Vec<&str>) -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let mut ips_to_remove = Vec::new();
 
     // Resolve the domains to IPs
     for domain in &domains {
-        let ips = Runtime::new().unwrap().block_on(resolve_domain_ips(&client, domain))?;
+        let ips = resolve_domain_ips(&client, domain).await?;
         ips_to_remove.extend(ips);
     }
 
