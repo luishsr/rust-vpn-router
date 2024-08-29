@@ -1,8 +1,9 @@
 use clap::{Arg, Command};
 use reqwest::Client;
-use std::fs::{self, OpenOptions};
-use std::io::{Write};
+use std::fs::{self};
 use std::process::Command as ShellCommand;
+use std::net::Ipv4Addr;
+use std::process::Command as ProcessCommand;
 use tokio::runtime::Runtime;
 
 #[tokio::main]
@@ -87,7 +88,7 @@ async fn resolve_domain_ips(client: &Client, domain: &str) -> Result<Vec<String>
         .unwrap_or(&vec![])
         .iter()
         .filter_map(|entry| entry["data"].as_str())
-        .filter(|ip| ip.parse::<std::net::Ipv4Addr>().is_ok())
+        .filter(|ip| ip.parse::<Ipv4Addr>().is_ok())
         .map(String::from)
         .collect::<Vec<_>>();
 
@@ -103,15 +104,10 @@ fn configure_vpn(vpn_config: &str, ip_addresses: Vec<String>) -> Result<(), Box<
     }
 
     // Add routes for each IP address
-    let mut config_file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open(vpn_config)?;
-
     for ip in ip_addresses {
-        let route_entry = format!("route {} 255.255.255.255\n", ip);
+        let route_entry = format!("route {} 255.255.255.255 net_gateway\n", ip);
         if !config_content.contains(&route_entry) {
-            config_file.write_all(route_entry.as_bytes())?;
+            add_route_to_interface(&ip, "tun0")?;  // Assuming tun0 is the interface
         }
     }
 
@@ -123,6 +119,27 @@ fn configure_vpn(vpn_config: &str, ip_addresses: Vec<String>) -> Result<(), Box<
         .spawn()?;
 
     Ok(())
+}
+
+fn add_route_to_interface(ip: &str, interface: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Add route via ip command
+    let status = ProcessCommand::new("sudo")
+        .arg("ip")
+        .arg("route")
+        .arg("add")
+        .arg(format!("{}/32", ip))
+        .arg("dev")
+        .arg(interface)
+        .status()?;
+
+    if !status.success() {
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to add route for IP {}", ip),
+        )))
+    } else {
+        Ok(())
+    }
 }
 
 fn list_routed_domains(vpn_config: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -167,13 +184,6 @@ fn remove_vpn_routing(vpn_config: &str, domains: Vec<&str>) -> Result<(), Box<dy
     }
 
     fs::write(vpn_config, new_content)?;
-
-    // Restart OpenVPN with the updated configuration
-    ShellCommand::new("sudo")
-        .arg("openvpn")
-        .arg("--config")
-        .arg(vpn_config)
-        .spawn()?;
 
     Ok(())
 }
