@@ -24,8 +24,8 @@ VPN Router is a Rust-based command-line application that allows you to easily ma
 - Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/vpn-router.git
-   cd vpn-router
+   git clone https://github.com/luishsr/rust-vpn-router.git
+   cd rust-vpn-router
 
 - Build the project:
 
